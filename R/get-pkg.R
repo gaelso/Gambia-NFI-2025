@@ -11,9 +11,11 @@ use_package(googledrive)
 use_package(sf)
 use_package(terra)
 use_package(geosphere)
+use_package(tmap)
 use_package(tidyterra)
 use_package(tidyverse)
 
 ## Package setup
 ggplot2::theme_set(theme_bw())
 options(readr.show_col_types = FALSE)
+tmap_mode("view")

@@ -20,14 +20,13 @@
 
 source("R/get-pkg.R")
 
-googledrive::drive_auth()
-
 
 ##
 ## Download core data ####
 ##
 
 if (!"data-core" %in% list.files()){
+  googledrive::drive_auth()
   drive_download("Gambia-NFI-2025/data-core.zip", overwrite = T)
   unzip(zipfile = "data-core.zip")
   unlink("data-core.zip")
