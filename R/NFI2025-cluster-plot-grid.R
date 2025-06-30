@@ -19,7 +19,6 @@ if (!"data-core" %in% list.files()) stop("Missing core data, Run: 'source(R/get-
 
 source("R/get-data.R")
 
-
 if (!"NFI-grid" %in% list.files("results")) dir.create("results/NFI-grid")
 
 
@@ -31,7 +30,8 @@ if (!"NFI-grid" %in% list.files("results")) dir.create("results/NFI-grid")
 tract_raw <- read_csv("data-core/NFMA/GMB-tract_raw.csv")
 
 ## + Get initial 5 arcminute grid and other spatial data
-sf_grid_init <- st_read("data-core/grid_fromsharepoint/tracts_5x5_true_utm.shp") 
+## NOT NEEDED, same info as coordinates in 'tract_raw' table
+# sf_grid_init <- st_read("data-core/grid_fromsharepoint/tracts_5x5_true_utm.shp") 
 
 ## + Country boundary ####
 ## Replaced with Iveren data, provided by forest department
@@ -65,7 +65,7 @@ sf_tract_center <- tract_raw |>
 
 
 ## REMOVE TRACT OUTSIDE BOUNDARIES FROM REPORT
-sf_tract_center_visited <- sf_tract |>
+sf_tract_center_visited <- sf_tract_center |>
   filter(!nfma_tract_id %in% paste0("t", c(141, 106, 113, 114, 103, 105))) |>
   filter(!nfma_tract_id %in% paste0("t0", c(75, 76, 11, 87, 91, 98, 48, 51, 52, 71)))
 
@@ -89,6 +89,7 @@ start_point <- sf_tract_center |>
   filter(nfma_tract_id == "t152") %>%
   mutate(geometry = st_geometry(.) + c(-5/60, 0))
 
+## > not needed.
 # start_point <- sf_grid_init |> 
 #   filter(Name == 149) %>%
 #   mutate(geometry = st_geometry(.) + c(-5/60, 0))
@@ -113,15 +114,14 @@ sf_grid25 <- st_make_grid(
   )
 
 ## CHECK
-tm_basemap(c("Esri.WorldGrayCanvas", "Esri.WorldImagery", "Esri.WorldTopoMap")) +
-  tm_shape(sf_grid_init) + tm_dots(fill = "grey10", size = 0.8) +
-  tm_shape(sf_tract_center) + tm_dots(fill = "red", size = 0.4) +
-  tm_shape(sf_tract_center_visited) + tm_dots(fill = "lightgreen", size = 0.4) +
-  tm_shape(sf_grid25) + tm_dots(fill = "pink3", size = 0.4, col = "black", lwd = 0.1)
+# tm_basemap(c("Esri.WorldGrayCanvas", "Esri.WorldImagery", "Esri.WorldTopoMap")) +
+#   tm_shape(sf_tract_center) + tm_dots(fill = "red", size = 0.4) +
+#   tm_shape(sf_tract_center_visited) + tm_dots(fill = "lightgreen", size = 0.4) +
+#   tm_shape(sf_grid25) + tm_dots(fill = "pink3", size = 0.4, col = "black", lwd = 0.1)
 
 
 ## Add tract info to 2.5 arcmin grid
-sf_tract_buff <- st_buffer(sf_tract, dist = 500)
+sf_tract_buff <- st_buffer(sf_tract_center, dist = 500)
 sf_grid25_join <- st_join(sf_grid25, sf_tract_buff)
 
 
@@ -181,9 +181,9 @@ sf_ceo_grid25 <- ceo_grid25 |>
   st_transform(crs = 4326)
 
 ## Check
-# tmap_mode("view") +
+# tm_basemap(c("Esri.WorldGrayCanvas", "Esri.WorldImagery", "Esri.WorldTopoMap")) +
 #   tm_shape(sf_country) + tm_lines() +
-#   tm_shape(sf_tract) + tm_dots(size = 0.6) +
+#   tm_shape(sf_tract_center) + tm_dots(size = 0.6) +
 #   tm_shape(sf_ceo_grid25) + tm_dots(fill = "green", size = 0.4)
 
 
@@ -208,7 +208,7 @@ ceo5_corr <- ceo25_latlon |>
 ## Convert NFMA tract center to cross points
 ##
 
-ceo_grid_nfma <- sf_tract |>
+ceo_grid_nfma <- sf_tract_center |>
   st_transform(32628) %>%
   mutate(
     tc_x = st_coordinates(.)[,1],
@@ -265,8 +265,9 @@ sf_ceo5_corr <- ceo5_corr |>
   mutate(xx = plot_lon, yy = plot_lat) |>
   st_as_sf(coords = c("xx", "yy"), crs = 4326)
 
-tmap_mode("view") +
-  tm_shape(sf_tract) + tm_dots(size = 0.6) +
+## Check
+tm_basemap(c("Esri.WorldGrayCanvas", "Esri.WorldImagery", "Esri.WorldTopoMap")) +
+  tm_shape(sf_tract_center) + tm_dots(size = 0.6) +
   tm_shape(sf_grid25) + tm_dots(size = 0.6, fill = "grey40") +
   tm_shape(sf_ceo5_nfma) + tm_dots(fill = "red", size = 0.4) +
   tm_shape(sf_ceo5_corr) + tm_dots(fill = "pink", size = 0.4) +

@@ -5,6 +5,7 @@ Analysis of historical NFMA inventory and CEO survey to prepare a re-measurement
 
 The following tables are prepared from the 'NFI-modules-2021-data' R project:
 - GMB-tract.csv
+- GMB-tract_raw.csv
 - GMB-plot.csv
 - GMB-plot_gps.csv
 - GMB-lus.csv
@@ -16,6 +17,13 @@ collected during the NFMA campaign in the Gambia
 The 'NFI-modules-2021-data' R project makes a grouped analysis of the main NFAM surveys across
 three continents.
 
+In the original NFMA grid, the tract center point positions are shifted from a 5 arcminutes grid. 
+These coordinates are in tract_raw table or in the tract_5x5_true_utm shapefile.
+
+!!! Important:
+the intensified grid at 2.5 arcminutes grid distance is not shifted and aligned to the southwestern most point, i.e. tract 152.
+
+
 ## CEO survey
 
 The CEO survey was collect in May 2025 over a 5 arc min grid overlapping NFMA plot 1 
@@ -25,5 +33,5 @@ Survey link on Collect Earth Online: https://app.collect.earth/review-institutio
 
 The collected data went through a first round of correction to make the csv file used in R.
 
-- 
+ROOTS map: Insert link
 
