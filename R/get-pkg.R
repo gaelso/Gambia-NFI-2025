@@ -19,3 +19,5 @@ use_package(tidyverse)
 ggplot2::theme_set(theme_bw())
 options(readr.show_col_types = FALSE)
 tmap_mode("view")
+
+## test
