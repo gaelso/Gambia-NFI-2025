@@ -427,37 +427,60 @@ table(t_intens$lu_class_final, useNA = "ifany")
 ##
 
 ## Closed forest
-assign_plot <- function(.strata_name)
-
-strata_name <- "closed forest"
-strata_samplesize <- strata_ss |> filter(lu_class_final == strata_name) |> pull(n_mix)
-strata_ceosize    <- ceo_tract_final |> filter(lu_class_final == strata_name) |> nrow()
-
-if (cf_ceosize <= cf_samplesize) {
-  ## take all samples 
-  strata_tract  <- ceo_tract_final |> filter(lu_class_final == strata_name) |> pull(tract_no_new)
-  strata_sample <- ceo_corr |> 
-    filter(tract_no_new %in% strata_tract) |>
-    select(tract_no_new, tract_no, type, plot_no, center_lon, center_lat, lu_class_final)
+assign_plot <- function(.strata_name, .ceo, .ceo_tract, .samplesize){
   
-} else {
-  ## take all NFMA and take the rest randomly from INTENS
+  ## !!! FOR TESTING ONLY
+  # .strata_name = "open forest"
+  # .ceo = ceo_corr
+  # .ceo_tract = ceo_tract_final
+  # .samplesize = 67
+  ## !!!
+  
+  ## Subset CEO data from desired strata
+  ceo_tract_nfma <- .ceo_tract |> filter(lu_class_final == .strata_name, type == "nfma_track")
+  ceo_tract_intens <- .ceo_tract |> filter(lu_class_final == .strata_name, type == "intense_cluster")
+  
+  if (nrow(ceo_tract_sub) <= .samplesize) {
+    ## take all samples 
+    strata_sample <- ceo_corr |> 
+      filter(tract_no_new %in% ceo_tract_nfma$tract_no_new) |>
+      select(tract_no_new, tract_no, type, plot_no, center_lon, center_lat, lu_class_final) |>
+      mutate(lu_cluster = .strata_name)
+    
+  } else {
+    ## take all NFMA and take the rest randomly from INTENS
+    strata_sample1 <- ceo_corr |> 
+      filter(tract_no_new %in% ceo_tract_nfma$tract_no_new) |>
+      select(tract_no_new, tract_no, type, plot_no, center_lon, center_lat, lu_class_final) |>
+      mutate(lu_cluster = .strata_name)
+    
+    sample_tract_intens <- sample(ceo_tract_intens$tract_no_new, size = (.samplesize - nrow(ceo_tract_nfma)))
+    strata_sample2 <- ceo_corr |> 
+      filter(tract_no_new %in% sample_tract_intens) |>
+      select(tract_no_new, tract_no, type, plot_no, center_lon, center_lat, lu_class_final) |>
+      mutate(lu_cluster = .strata_name)
+    
+    strata_sample <- bind_rows(strata_sample1, strata_sample2)
+  }
   
   
-}
+} ## End function
 
-
-
-cf_sample <- ceo_tract_final |> filter(lu_class_final == "closed forest") |>
-  full_join(ceo_corr, by = join_by(tract_no, type))
-
-cf_nfma <- ceo_tract_final |> filter(lu_class_final == "closed forest", type == "nfma_track") |> pull(tract_no_new)
-
-cf_intens_pool <- ceo_tract_final |> filter(lu_class_final == "closed forest", type == "intense_cluster") |> pull(tract_no_new)
-
-cf_intens <- sample()
-
+table(ceo_tract_final$lu_class_final)
+strata_ss
 set.seed(44)
 
+cf_plot <- assign_plot(.strata_name = "closed forest", .samplesize = 24, .ceo = ceo_corr, .ceo_tract = ceo_tract_final)
+mg_plot <- assign_plot(.strata_name = "mangrove forest", .samplesize = 29, .ceo = ceo_corr, .ceo_tract = ceo_tract_final)
+of_plot <- assign_plot(.strata_name = "open forest", .samplesize = 67, .ceo = ceo_corr, .ceo_tract = ceo_tract_final)
 
+NFI_PLOT <- bind_rows(cf_plot, mg_plot, of_plot)
 
+NFI_CLUSTER <- NFI_PLOT |>
+  filter(plot_no == 1) |>
+  select(-lu_class_final, -plot_no)
+
+table(NFI_CLUSTER$lu_cluster)
+
+write_csv(NFI_PLOT, "results/NFI_PH2_PLOT.csv")
+write_csv(NFI_CLUSTER, "results/NFI_PH2_CLUSTER.csv")
