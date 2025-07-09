@@ -369,7 +369,7 @@ E_st
 
 ## Check CEO on NFMA and assign ####
 ceo_tract_init <- ceo_corr |> 
-  summarise(count_plot = n(), .by = c(tract_no_new, lu_class_final)) |>
+  summarise(count_plot = n(), .by = c(tract_no_new, tract_no, type, tract_id, lu_class_final)) |>
   arrange(tract_no_new)
 
 ceo_tract_max <- ceo_tract_init |>
@@ -382,7 +382,82 @@ ceo_tract <- ceo_tract_init |>
 
 nrow(ceo_tract) == length(unique(ceo_corr$tract_no_new))
 
-## Fid dup
+## Find dup
 tract_dup <- ceo_tract |>
-  summarise(count = n(), )
+  summarise(count = n(), .by = tract_no_new) |>
+  filter(count > 1) |>
+  pull(tract_no_new)
+
+tt <- ceo_corr |> filter(tract_no_new %in% tract_dup)
+
+## Reclassify mix of closed and open forest into open forest
+## Reclassify mix of mangrove and closed forest into closed forest
+tract_corr_dup <- tibble(
+    tract_no_new   = c(90, 219, 349, 525, 565, 640, 661),
+    tract_no       = c(90, 67, 197, 373, 413, 488, 509),
+    type           = c("nfma_track", rep("intense_cluster", 6)),
+    tract_id       = c("nfma090", "intens067", "intens197", "intens373", "intens413", "intens488", "intens509"),
+    lu_class_final = c(rep("open forest", 5), "closed forest", "open forest"),
+    count_plot = c(rep(3, 5), 4, 3),
+    majority = rep(TRUE, 7)
+    )
+
+ceo_tract_final <- ceo_tract |>
+  filter(!tract_no_new %in% tract_dup) |>
+  bind_rows(tract_corr_dup) |>
+  arrange(tract_no_new)
+
+nrow(ceo_tract_final) == length(unique(ceo_corr$tract_no_new))
+
+write_csv(ceo_tract_final, "results/tract-final-allocation.csv")
+
+
+table(ceo_tract_final$lu_class_final)
+table(ceo_tract_final$type, ceo_tract_final$lu_class_final)
+
+
+t_nfma <- ceo_tract_final |> filter(tract_no_new <= 152)
+table(t_nfma$lu_class_final, useNA = "ifany")
+
+t_intens <- ceo_tract_final |> filter(tract_no_new > 152)
+table(t_intens$lu_class_final, useNA = "ifany")
+
+##
+## Define cluster selection ####
+##
+
+## Closed forest
+assign_plot <- function(.strata_name)
+
+strata_name <- "closed forest"
+strata_samplesize <- strata_ss |> filter(lu_class_final == strata_name) |> pull(n_mix)
+strata_ceosize    <- ceo_tract_final |> filter(lu_class_final == strata_name) |> nrow()
+
+if (cf_ceosize <= cf_samplesize) {
+  ## take all samples 
+  strata_tract  <- ceo_tract_final |> filter(lu_class_final == strata_name) |> pull(tract_no_new)
+  strata_sample <- ceo_corr |> 
+    filter(tract_no_new %in% strata_tract) |>
+    select(tract_no_new, tract_no, type, plot_no, center_lon, center_lat, lu_class_final)
+  
+} else {
+  ## take all NFMA and take the rest randomly from INTENS
+  
+  
+}
+
+
+
+cf_sample <- ceo_tract_final |> filter(lu_class_final == "closed forest") |>
+  full_join(ceo_corr, by = join_by(tract_no, type))
+
+cf_nfma <- ceo_tract_final |> filter(lu_class_final == "closed forest", type == "nfma_track") |> pull(tract_no_new)
+
+cf_intens_pool <- ceo_tract_final |> filter(lu_class_final == "closed forest", type == "intense_cluster") |> pull(tract_no_new)
+
+cf_intens <- sample()
+
+set.seed(44)
+
+
 
