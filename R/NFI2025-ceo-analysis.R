@@ -456,8 +456,8 @@ t4_corr <- t4 |>
       tract_no ==  55 ~ "nonforest",
       tract_no == 129 ~ "mangrove forest",
       !is.na(nfma_lu_class) & !is.na(ceo_lu_class) ~ nfma_lu_class,
-      is.na(nfma_lu_class) & !is.na(ceo_lu_class)  ~ ceo_lu_class, ## Tested open forest in CEO with NA in NFMA could be open forest.  
-      TRUE ~ "nonforest"
+      is.na(nfma_lu_class) & !is.na(ceo_lu_class)  ~ paste0("likely ", ceo_lu_class), ## Tested open forest in CEO with NA in NFMA could be open forest.  
+      TRUE ~ "likely nonforest"
     ),
     comment_gs = case_when(
       tract_no == 128 ~ "confirmed mangrove",

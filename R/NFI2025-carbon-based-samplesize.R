@@ -7,6 +7,8 @@
 source("R/get-pkg.R")
 source("R/get-data.R")
 
+if (!"ceo_extra.csv" %in% list.files("results/CEO-comparison")) source("R/NFI20205-ceo-analysis.R")
+
 
 ##
 ## Load data ####
@@ -38,13 +40,21 @@ rm(nfma, path_nfma, path_nfma_names)
 ## > Requires running ceo-analysis.R to get the full corrections and 
 ##   comparison of NFMA and, ROOTS and CEO land use
 
-ceo_extra <- read_csv("results/ceo_extra.csv")
-ceo_tract_corr <- read_csv("results/t4_corr.csv")
+ceo_extra <- read_csv("results/CEO-comparison/ceo_extra.csv")
+ceo_tract_corr <- read_csv("results/CEO-comparison/t4_corr.csv") |>
+  select(tract_no, type, lu_corr) |>
+  distinct() |>
+  arrange(tract_no)
 
-ceo_corr <- ceo_extra |>
-  left_join(ceo_tract_corr) |>
-  mutate(lu_class = if_else(!is.na(lu_corr), lu_corr, ceo_lu_class))
+table(ceo_tract_corr$lu_corr, useNA = "ifany")
 
+## Solve duplicates in CEO tract corr
+dup_tract <- ceo_tract_corr |>
+  summarise(count = n(), .by = tract_no) |>
+  filter(count > 1) |>
+  pull(tract_no)
+
+ceo_tract_corr <- ceo_tract_corr |> filter(!(tract_no %in% dup_tract & !str_detect(lu_corr, "likely")))
 
 ## + Get country boundary ####
 ## NOT NEEDED
@@ -62,6 +72,35 @@ ceo_corr <- ceo_extra |>
 ## 
 ## PRELIMINARY CALCULATIONS ####
 ##
+
+## + Update CEO land use with corrections from t4 ####
+max_nfma <- ceo_extra |>
+  filter(type == "nfma_track") |>
+  pull(tract_no) |>
+  max()
+
+
+ceo_corr <- ceo_extra |>
+  left_join(ceo_tract_corr, by = join_by(tract_no, type)) |>
+  arrange(desc(type), tract_no) |>
+  mutate(
+    lu_class_final = case_when(
+      str_detect(lu_corr, "likely") ~ ceo_lu_class,
+      is.na(lu_corr) ~ ceo_lu_class,
+      TRUE ~ lu_corr
+    ),
+    tract_no_new = if_else(type == "nfma_track", tract_no, tract_no + max_nfma),
+    tract_id = case_when(
+      type == "nfma_track" & tract_no < 10   ~ paste0("nfma00", tract_no), 
+      type == "nfma_track" & tract_no < 100  ~ paste0("nfma0" , tract_no),
+      type == "nfma_track" & tract_no >= 100 ~ paste0("nfma"  , tract_no),
+      type != "nfma_track" & tract_no < 10   ~ paste0("00", tract_no), 
+      type != "nfma_track" & tract_no < 100  ~ paste0("intens0" , tract_no),
+      type != "nfma_track" & tract_no >= 100 ~ paste0("intens"  , tract_no),
+      TRUE ~ NA_character_
+    )
+  )
+
 
 ## + Make species WD averages for Africa ####
 
@@ -291,15 +330,15 @@ n <- ceiling(((overall_agb$agb_sd / overall_agb$agb_ha * 100) * t/E)^2)
 n
 
 ## + Stratified sampling with Neyman allocation ####
-table(ceo_corr$lu_class)
+table(ceo_corr$lu_class_final)
 
 n_ceoplot <- nrow(ceo_corr)
 
 strata_weight <- ceo_corr |>
-  filter(lu_class != "nonforest") |>
-  summarise(ceo_count = n(), .by = "lu_class") |>
+  filter(lu_class_final != "nonforest") |>
+  summarise(ceo_count = n(), .by = "lu_class_final") |>
   mutate(weight = ceo_count / n_ceoplot) |>
-  left_join(class_agb, by = join_by(lu_class == lus_class)) |>
+  left_join(class_agb, by = join_by(lu_class_final == lus_class)) |>
   mutate(
     WhSh = weight * agb_sd,
     mean_prop = weight * agb_ha
@@ -312,7 +351,7 @@ n_st <- ceiling(t^2 * sum_WhSh^2 / (mean_st * E / 100)^2)
 n_st
 
 ## + fixed sample size allocation ####
-n_cost <- 136
+n_cost <- 120
 
 strata_ss <- strata_weight |> 
   mutate(
@@ -326,4 +365,24 @@ sum(strata_ss$nh)
 sum(strata_ss$n_mix)
 E_st <-  t * sum_WhSh / (mean_st / 100 * sqrt(n_cost))
 E_st
+
+
+## Check CEO on NFMA and assign ####
+ceo_tract_init <- ceo_corr |> 
+  summarise(count_plot = n(), .by = c(tract_no_new, lu_class_final)) |>
+  arrange(tract_no_new)
+
+ceo_tract_max <- ceo_tract_init |>
+  summarise(count_max = max(count_plot), .by = tract_no_new)  |>
+  mutate(majority = TRUE)
+
+ceo_tract <- ceo_tract_init |>
+  left_join(ceo_tract_max, by = join_by(tract_no_new, count_plot == count_max)) |>
+  filter(majority)
+
+nrow(ceo_tract) == length(unique(ceo_corr$tract_no_new))
+
+## Fid dup
+tract_dup <- ceo_tract |>
+  summarise(count = n(), )
 
