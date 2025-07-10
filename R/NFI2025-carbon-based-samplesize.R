@@ -484,3 +484,18 @@ table(NFI_CLUSTER$lu_cluster)
 
 write_csv(NFI_PLOT, "results/NFI_PH2_PLOT.csv")
 write_csv(NFI_CLUSTER, "results/NFI_PH2_CLUSTER.csv")
+
+sf_nfi_plot <- NFI_PLOT |>
+  mutate(x = center_lon, y = center_lat) |>
+  st_as_sf(coords = c("x", "y"), crs = 4326)
+
+sf_nfi_cluster <- NFI_CLUSTER |>
+  mutate(x = center_lon, y = center_lat) |>
+  st_as_sf(coords = c("x", "y"), crs = 4326)
+
+ggplot() +
+  geom_sf(data = sf_nfi_cluster)
+
+
+st_write(sf_nfi_cluster, "results/NFI_PH2_cluster_center.kml", delete_dsn = T)
+st_write(sf_nfi_plot, "results/NFI_PH2_plot_center.kml", delete_dsn = T)
