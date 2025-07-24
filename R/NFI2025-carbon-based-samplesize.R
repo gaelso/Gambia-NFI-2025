@@ -437,25 +437,26 @@ assign_plot <- function(.strata_name, .ceo, .ceo_tract, .samplesize){
   ## !!!
   
   ## Subset CEO data from desired strata
-  ceo_tract_nfma <- .ceo_tract |> filter(lu_class_final == .strata_name, type == "nfma_track")
+  ceo_tract_lu     <- .ceo_tract |> filter(lu_class_final == .strata_name)
+  ceo_tract_nfma   <- .ceo_tract |> filter(lu_class_final == .strata_name, type == "nfma_track")
   ceo_tract_intens <- .ceo_tract |> filter(lu_class_final == .strata_name, type == "intense_cluster")
   
-  if (nrow(ceo_tract_sub) <= .samplesize) {
+  if (nrow(ceo_tract_lu) <= .samplesize) {
     ## take all samples 
-    strata_sample <- ceo_corr |> 
-      filter(tract_no_new %in% ceo_tract_nfma$tract_no_new) |>
+    strata_sample <- .ceo |> 
+      filter(tract_no_new %in% ceo_tract_lu$tract_no_new) |>
       select(tract_no_new, tract_no, type, plot_no, center_lon, center_lat, lu_class_final) |>
       mutate(lu_cluster = .strata_name)
     
   } else {
     ## take all NFMA and take the rest randomly from INTENS
-    strata_sample1 <- ceo_corr |> 
+    strata_sample1 <- .ceo |> 
       filter(tract_no_new %in% ceo_tract_nfma$tract_no_new) |>
       select(tract_no_new, tract_no, type, plot_no, center_lon, center_lat, lu_class_final) |>
       mutate(lu_cluster = .strata_name)
     
     sample_tract_intens <- sample(ceo_tract_intens$tract_no_new, size = (.samplesize - nrow(ceo_tract_nfma)))
-    strata_sample2 <- ceo_corr |> 
+    strata_sample2 <- .ceo |> 
       filter(tract_no_new %in% sample_tract_intens) |>
       select(tract_no_new, tract_no, type, plot_no, center_lon, center_lat, lu_class_final) |>
       mutate(lu_cluster = .strata_name)
@@ -463,6 +464,7 @@ assign_plot <- function(.strata_name, .ceo, .ceo_tract, .samplesize){
     strata_sample <- bind_rows(strata_sample1, strata_sample2)
   }
   
+  strata_sample
   
 } ## End function
 
@@ -496,6 +498,59 @@ sf_nfi_cluster <- NFI_CLUSTER |>
 ggplot() +
   geom_sf(data = sf_nfi_cluster)
 
-
 st_write(sf_nfi_cluster, "results/NFI_PH2_cluster_center.kml", delete_dsn = T)
 st_write(sf_nfi_plot, "results/NFI_PH2_plot_center.kml", delete_dsn = T)
+
+
+
+## Some clusters are outside country boundaries ####
+## Update
+
+sf_ceo <- ceo_corr |>
+  mutate(x = center_lon, y = center_lat) |>
+  st_as_sf(coords = c("x", "y"), crs = 4326)
+
+sf_country <- st_read("data-core/Admin boundries/LG_Areas.shp") |> 
+  st_transform(4326) |>
+  st_union()
+
+sf_ceo_clip <- st_difference(sf_ceo, sf_country)
+ceo_clipout <- sf_ceo_clip |> pull(tract_no_new) |> unique() |> sort()
+
+## Assign clipped polygons
+ceo_corr_clip  <- ceo_corr |> filter(!tract_no_new %in% ceo_clipout)
+ceo_tract_clip <- ceo_tract_final |> filter(!tract_no_new %in% ceo_clipout)
+
+table(ceo_tract_clip$lu_class_final, useNA = "ifany")
+
+## Get phase 2 clusters and plot 
+set.seed(44)
+cf_plot <- assign_plot(.strata_name = "closed forest"  , .samplesize = 21, .ceo = ceo_corr_clip, .ceo_tract = ceo_tract_clip)
+mg_plot <- assign_plot(.strata_name = "mangrove forest", .samplesize = 31, .ceo = ceo_corr_clip, .ceo_tract = ceo_tract_clip)
+of_plot <- assign_plot(.strata_name = "open forest"    , .samplesize = 68, .ceo = ceo_corr_clip, .ceo_tract = ceo_tract_clip)
+
+NFI_PLOT <- bind_rows(cf_plot, mg_plot, of_plot)
+
+NFI_CLUSTER <- NFI_PLOT |>
+  filter(plot_no == 1) |>
+  select(-lu_class_final, -plot_no)
+
+table(NFI_CLUSTER$lu_cluster)
+
+write_csv(NFI_PLOT, "results/NFI_PH2_PLOT_clip.csv")
+write_csv(NFI_CLUSTER, "results/NFI_PH2_CLUSTER_clip.csv")
+
+sf_nfi_plot <- NFI_PLOT |>
+  mutate(x = center_lon, y = center_lat) |>
+  st_as_sf(coords = c("x", "y"), crs = 4326)
+
+sf_nfi_cluster <- NFI_CLUSTER |>
+  mutate(x = center_lon, y = center_lat) |>
+  st_as_sf(coords = c("x", "y"), crs = 4326)
+
+ggplot() +
+  geom_sf(data = sf_nfi_cluster)
+
+st_write(sf_nfi_cluster, "results/NFI_PH2_cluster_center_clip.kml", delete_dsn = T)
+st_write(sf_nfi_plot, "results/NFI_PH2_plot_center_clip.kml", delete_dsn = T)
+
