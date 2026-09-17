@@ -3,10 +3,10 @@
 
 
 ## Initiation 
-source("R/get-pkg.R")
+source("R-design/get-pkg.R")
 
 if (!"data-core" %in% list.files()) stop("Missing core data, Run: 'source(R/get-data.R)' below before bulk running this script")
-source("R/get-data.R")
+source("R-design/get-data.R")
 
 if(!"CEO-comparison" %in% list.files("results")) dir.create("results/CEO-comparison")
 

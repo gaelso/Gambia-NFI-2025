@@ -18,7 +18,7 @@
 ## Contact: Gaël Sola, FAO.
 
 
-source("R/get-pkg.R")
+source("R-design/get-pkg.R")
 
 
 ##

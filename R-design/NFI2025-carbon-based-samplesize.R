@@ -4,10 +4,10 @@
 
 
 ## Initiation 
-source("R/get-pkg.R")
-source("R/get-data.R")
+source("R-design/get-pkg.R")
+source("R-design/get-data.R")
 
-if (!"ceo_extra.csv" %in% list.files("results/CEO-comparison")) source("R/NFI20205-ceo-analysis.R")
+if (!"ceo_extra.csv" %in% list.files("results/CEO-comparison")) source("R-design/NFI2025-ceo-analysis.R")
 
 
 ##
@@ -409,9 +409,6 @@ ceo_tract_final <- ceo_tract |>
 
 nrow(ceo_tract_final) == length(unique(ceo_corr$tract_no_new))
 
-write_csv(ceo_tract_final, "results/tract-final-allocation.csv")
-
-
 table(ceo_tract_final$lu_class_final)
 table(ceo_tract_final$type, ceo_tract_final$lu_class_final)
 
@@ -467,6 +464,7 @@ assign_plot <- function(.strata_name, .ceo, .ceo_tract, .samplesize){
   strata_sample
   
 } ## End function
+
 
 table(ceo_tract_final$lu_class_final)
 strata_ss
@@ -554,3 +552,23 @@ ggplot() +
 st_write(sf_nfi_cluster, "results/NFI_PH2_cluster_center_clip.kml", delete_dsn = T)
 st_write(sf_nfi_plot, "results/NFI_PH2_plot_center_clip.kml", delete_dsn = T)
 
+## Add to tract final 
+
+## Add coordinates
+ceo_tract_coords <- ceo_corr |> 
+  filter(plot_no == 1) |>
+  select(tract_no, type, pl_track_details, ceo_id, center_lon, center_lat)
+
+ceo_tract_final2 <- ceo_tract_final |>
+  left_join(ceo_tract_coords, by = join_by(tract_no, type)) |>
+  mutate(ph2_selected = if_else(tract_no_new %in% NFI_CLUSTER$tract_no_new, TRUE, FALSE)) |>
+  rename(ceo_tract_no = tract_no_new)
+
+write_csv(ceo_tract_final2, "results/ceo-phase1-final-allocation.csv")
+
+ceo_tract_final2 |> filter(ph2_selected) |> nrow()
+
+ceo_tract_final2 |> 
+  mutate(x = center_lon, y = center_lat) |>
+  st_as_sf(coords= c("x", "y"), crs = 4326) |>
+  st_write("results/ceo-phase1-final-allocation.kml", delete_dsn = TRUE)
